@@ -28,25 +28,32 @@ BEGIN {
 
 =head2 remove C<TODO> occurrences of the code itself
 
-=head2 remove idiotic id management for entries
+=head2 html renderer
 
-=head3 id from title
+or just a little text substitution to make pandoc happier about the page info
+and h1? 
 
-text::unidecode to get sanitized tags from title (ask Thomas "eight-bits" for
-the name of this method). 
+=head2 new header format ?
 
-=head3 new header format
-
+YAML surrounded by C<^#(> and C<^#)> ?
 
     #( title: a better id
     id: a-better-entry-prolog-for-atombomb
     published:
     updated:
     #)
+    
+=head2 create App::Atombomb
+
+but first:
+
+    * make it configurable
+    * be sure about the name
+    * write tests
 
 =head1 internal functions documentation
 
-=head1 entry_for ( $header, $md )
+=head1 parse_entry_header
 
 the header is set by the atom/entry format which
 is currently C<%FT%T+01:00>, which is a short form for
@@ -54,7 +61,6 @@ C<%Y-%m-%dT%H:%M:%S+01:00>. please consult the man
 of C<GNU date> for more explanation.
 
 =cut
-
 sub parse_entry_header (_) {
     my $text = shift;
     return unless $text =~ m{
@@ -69,6 +75,14 @@ sub parse_entry_header (_) {
 
     +{%+}
 }
+
+=head1 piping, pandoc and sha1sum
+
+piping is little wrapper around open2, just to pipe text to a command and get
+the output.
+
+see pandoc and sha1sum as examples
+=cut
 
 sub piping {
     my $input = pop or die;
@@ -93,21 +107,26 @@ sub sha1sum {
     , shift )[0]
 }
 
+=head1 entry_for ( $header, $md )
+
+build the entry structure from a C<$header> (see parse_entry_header for format
+details) and a markdown source $md as content. 
+
+=cut
 func entry_for ( $header, $md ) {
     my $e = parse_entry_header $header
         or die "can't parse header";
 
     map {
         die unless $_;
-        $$e{id} ||=
-        "tag:eiro,news,"
-        . $$e{created}
-        . ','
-        .  unidecode lc s/[^a-zA-Z0-9]+/_/gr;
+        $$e{id} ||= join ','
+            , 'tag:eiro,news'
+            , $$e{created}
+            ,  unidecode lc s/[^a-zA-Z0-9]+/_/gr;
     } $$e{title};
 
-    $$e{html} = (encode_entities pandoc $md)
-        or die "can't parse makdown";
+    die "can't parse makdown" unless 
+        $$e{html} = encode_entities pandoc $md;
 
     for ($$e{alternates}) {
         $_ or $_ = [], next;
@@ -120,18 +139,26 @@ func entry_for ( $header, $md ) {
     $e
 }
 
+=head1 write_entry
+
+return the atom xml for an the entry structure (as returned by entry_for).
+
+=cut
 sub write_entry (_) {
     my $e = shift;
-    entry {
-        ''
-        , id        {$$e{id}}
-        , title     {$$e{title}}
-        , content   {+{ type => 'html'},  $$e{html} }
-        , published { $$e{created} }
-        , updated   { $$e{created} }
-    }
+    entry
+    { id        {$$e{id}}
+    , title     {$$e{title}}
+    , content   {+{ type => 'html'},  $$e{html} }
+    , published { $$e{created} }
+    , updated   { $$e{created} } }
 }
 
+=head1 feed_content
+
+return the atom xml of the whole feed content (no root tag). 
+
+=cut
 sub feed_content (_) {
     my $v = shift;
     updated{$$v{updated} || $$v{entries}[0]{created} || die YAML::Dump $v }
@@ -140,7 +167,6 @@ sub feed_content (_) {
     , title{$$v{title}}
     , map write_entry, @{ $$v{entries} };
 }
-
 
 my ( $header , @chunks ) = 
     map   s/(\s*\n)\z//rxms
@@ -157,32 +183,10 @@ my $v =
 
 
 $$v{entries} =
-    [ fold apply {
-        (entry_for @$_) || die
-    } chunksOf 2, \@chunks ];
-
-#map { say $$_{html} } @{ $$v{entries} };
-#exit;
+    [ fold
+        apply { (entry_for @$_) || die}
+        chunksOf 2, \@chunks ];
 
 say '<?xml version="1.0" encoding="UTF-8"?><feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">'
 , (feed_content $v)
-, '</feed>'
-
-
-# [ "$header",
-#     , @chunks
-# ]
-
-# my $NOW = do { chomp ($_= qx{date +%FT%T+01:00}); $_ };
-# 
-# say Feed {
-#     id {'http://eiro.github.io/2013'}
-#     , published{$NOW}, updated{$NOW}
-#     , '<link rel="self" type="application/atom+xml" href="http://eiro.github.com/atom.xml"/>'
-#     , title{"(.. eiro (brain) (dump))"}
-#     , entry {
-#         id {'http://eiro.github.io/2013-test/1'}
-#         , published{$NOW}, updated{$NOW}
-#         , title {"this is the first post"}
-#         ,
-# 
+, '</feed>';
