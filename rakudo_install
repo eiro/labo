@@ -1,0 +1,92 @@
+#! env perl 
+
+=head1 rakudo installer
+
+this is a rakudo installer i run mounthly to keep my rakudo-star up to date
+
+=head1 assumptions
+
+rakudo base is in ~/local/opt/rakudo. it contains a one subdirectory per
+version and a symlink C<current> to the most recent running version. this is to
+ease rollback to a previous version. It wasn't used for mounths because rakudo-star 
+installation process seems to be very stable.
+
+=head usage
+
+update your .zshenv
+
+    hash -d p6=~/src/perl/6/lib
+    export -UT PERL6LIB perl6lib
+    path=(
+        ~/local/opt/rakudo/current/install/bin(N)
+        $path
+    )
+
+run the script (maybe you need to install some binaries). 
+
+    perl rakudo_install 
+
+=head todo
+
+document extra-flags
+
+=cut
+
+use Modern::Perl;
+use autodie;
+use Env qw< HOME >;
+
+my $cmd = shift || 'help';
+my @subcommands = qw< help usage check url force install get >;
+
+$cmd ~~ [qw< help usage >] and do {
+    say for "subcommand is one of:", @subcommands;
+    exit;
+};
+
+my @available_dists = sort
+    ( qx{curl -sL http://rakudo.org/downloads/star/} =~
+                m( (rakudo-star-20\d{2}[.]\d{2})[.]tar[.]gz )xg );
+
+my $current = $available_dists[-1];
+say for "found @available_dists","candidate id $current";
+
+my $url = "http://rakudo.org/downloads/star/$current.tar.gz";
+
+$cmd eq 'url' and do {
+    say $url;
+    exit;
+};
+
+chdir "$HOME/local/opt/rakudo";
+
+my $ready = -d $current;
+exit $ready if $cmd eq 'check';
+
+if ( $ready ) {
+    exit if $cmd ne 'force';
+    qx{ rm -rf $current };
+} 
+
+my $will_install =
+    $cmd eq 'get'     ? 'false' :
+    $cmd eq 'install' ? 'true'  :
+    die "$cmd subcommand not allowed there";
+
+say "$cmd $current";
+qx{
+    set -e
+    curl -sL $url | tar xzf -
+    cd $current
+    export PERL5LIB=
+    export PERL6LIB=
+    $will_install && {
+        perl Configure.pl --backends=parrot,jvm --gen-parrot
+        make
+        make install
+        cd ..
+        rm old || true
+        mv current old || true
+        ln -s $current current
+    }
+};
