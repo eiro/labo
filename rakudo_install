@@ -1,6 +1,8 @@
 #! env perl 
 
-=head1 rakudo installer
+=head1 rakudo installer (DEPRECATED)
+
+this script is superseded by https://github.com/tadzik/rakudobrew
 
 this is a rakudo installer i run mounthly to keep my rakudo-star up to date
 
