@@ -1,36 +1,79 @@
 #! env perl 
 
-=head1 rakudo installer (DEPRECATED)
+=head1 general strategy
 
-this script is superseded by https://github.com/tadzik/rakudobrew
+write a shellscript that
 
-this is a rakudo installer i run mounthly to keep my rakudo-star up to date
+=over
 
-=head1 assumptions
+=item finds the lastest rakudo-star distribution
 
-rakudo base is in ~/local/opt/rakudo. it contains a one subdirectory per
-version and a symlink C<current> to the most recent running version. this is to
-ease rollback to a previous version. It wasn't used for mounths because rakudo-star 
-installation process seems to be very stable.
+=item if not yet, download it in a subdirectory
 
-=head usage
+=item build one or more implementations of rakudo 
 
-update your .zshenv
+=item symlink the lastest subdirectory to current
+
+=back
+
+=head1 usage
+
+just see the tooth of the beast? 
+
+    perl ./rakudo_install download
+
+
+want to check what will be done ? 
+
+    perl ./rakudo_install install
+
+you prefer the jvm flavor? or jvm and moar? 
+
+    perl ./rakudo_install install jvm,moar
+
+convinced? 
+
+    perl ./rakudo_install install |
+        (cd /whatever/path/you/want
+            sh)
+
+so convinced you want to install rakudo on all your production servers? 
+
+    perl ./rakudo_install install > /tmp/faith.sh
+
+    for p ( prod1 prod2 prod3 ) {
+        ssh $p sh < /tmp/faith.sh
+    }
+
+=head1 put it all together
+
+=head2 in your ~/.zshenv
+
+C<~p6> is where i store all my repos, C<~/local/opt/rakudo> is where i compile
+rakudo
 
     hash -d p6=~/src/perl/6/lib
     export -UT PERL6LIB perl6lib
+
     path=(
         ~/local/opt/rakudo/current/install/bin(N)
+        ~p6/*/bin(N)
         $path
     )
 
-run the script (maybe you need to install some binaries). 
 
-    perl rakudo_install 
+=head2 et voila
 
-=head todo
+    rakudo_install install |
+        ( cd ~/local/opt/rakudo; sh )  
+    cd ~p6 
+    git clone https://github.com/Cofyc/perl6-redis.git
 
-document extra-flags
+=head1 todo
+
+    * document extra-flags
+    * add repo, credits, ...
+    * support clone subcommand to git clone https://github.com/rakudo/rakudo.git
 
 =cut
 
@@ -51,8 +94,6 @@ my @available_dists = sort
                 m( (rakudo-star-20\d{2}[.]\d{2})[.]tar[.]gz )xg );
 
 my $current = $available_dists[-1];
-say for "found @available_dists","candidate id $current";
-
 my $url = "http://rakudo.org/downloads/star/$current.tar.gz";
 
 $cmd eq 'url' and do {
@@ -60,32 +101,61 @@ $cmd eq 'url' and do {
     exit;
 };
 
-chdir "$HOME/local/opt/rakudo";
-
 my $ready = -d $current;
 exit $ready if $cmd eq 'check';
 
 if ( $ready ) {
     exit if $cmd ne 'force';
     qx{ rm -rf $current };
-} 
+}
 
-my $will_install =
-    $cmd eq 'get'     ? 'false' :
-    $cmd eq 'install' ? 'true'  :
-    die "$cmd subcommand not allowed there";
+my ( $will_install, $asked_implementations ) = do {
+    $cmd eq 'get'     ?
+        ( 'false' 
+        , [] )
+    : $cmd eq 'install' ?
+        ( 'true'
+        , [ split ','
+            , (shift||'moar') ] )
+    : die "$cmd subcommand not allowed there";
+};
 
-say "$cmd $current";
-qx{
+my %commands_to_build =
+( parrot =>
+    [ [qw< perl Configure.pl  --backends=parrot --gen-parrot --gen-nqp >]
+    , [qw< make p-realclean >] ]
+, jvm =>
+    [ [qw< perl Configure.pl --backends=jvm --gen-nqp >]
+    , [qw< make p-realclean >] ]
+, moar =>
+    [ [qw< perl Configure.pl --backends=moar --gen-moar --gen-nqp >]
+    , [qw< make realclean >] ] );
+
+my $build_script =
+    join '', map {
+        my ( $configure, $clean ) =
+            @{ $commands_to_build{$_}
+            || die "unknown implementation: $_" };
+        join '', map "        $_\n"
+            , "@$configure"
+            , 'make'
+            , 'make install'
+            # , "@$clean";
+    } @$asked_implementations;
+
+say "# will $cmd $current";
+say qq{
     set -e
-    curl -sL $url | tar xzf -
+    test -d $current ||
+        { curl -sL $url |
+            gzip -cd    |
+            tar xf -
+        }
     cd $current
     export PERL5LIB=
     export PERL6LIB=
     $will_install && {
-        perl Configure.pl --backends=parrot,jvm --gen-parrot
-        make
-        make install
+$build_script
         cd ..
         rm old || true
         mv current old || true
