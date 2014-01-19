@@ -61,18 +61,19 @@ C<%Y-%m-%dT%H:%M:%S+01:00>. please consult the man
 of C<GNU date> for more explanation.
 
 =cut
+
+my $FOUND_HEADER = qr{
+    ^ \#\( (?<created>
+          \d{4} - \d{2} - \d{2}
+    T     \d{2} : \d{2} : \d{2}
+    \+    \d{2} : \d{2} )
+    \) \s (?<title> .+?)
+    \s* $
+}xms;
+
 sub parse_entry_header (_) {
     my $text = shift;
-    return unless $text =~ m{
-        ^
-        \#\( (?<created>
-              \d{4} - \d{2} - \d{2}
-        T     \d{2} : \d{2} : \d{2}
-        \+    \d{2} : \d{2} )
-        \) \s (?<title> .+?)
-        \s* $
-    }x;
-
+    return unless $text =~ m{$FOUND_HEADER};
     +{%+}
 }
 
@@ -168,25 +169,51 @@ sub feed_content (_) {
     , map write_entry, @{ $$v{entries} };
 }
 
-my ( $header , @chunks ) = 
-    map   s/(\s*\n)\z//rxms
-    , split /(^\#\(\N+)/xms
-    , read_file 'feed';
+func atom ( $input ) {
+    my ( $header , @chunks ) = 
+        map   s/(\s*\n)\z//rxms
+        , split /(^\#\(\N+)/xms
+        , $input;
 
-my $v =
-    try { YAML::Load "$header\n" }
-    catch {
-        die
-        ( (uc "$_ while parsing")
-        , map {s/^/\t/xmsgr} $header )
-    };
+    my $v =
+        try { YAML::Load "$header\n" }
+        catch {
+            die
+            ( (uc "$_ while parsing")
+            , map {s/^/\t/xmsgr} $header )
+        };
 
+    $$v{entries} =
+        [ fold
+            apply { (entry_for @$_) || die}
+            chunksOf 2, \@chunks ];
 
-$$v{entries} =
-    [ fold
-        apply { (entry_for @$_) || die}
-        chunksOf 2, \@chunks ];
+    say '<?xml version="1.0" encoding="UTF-8"?><feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">'
+    , (feed_content $v)
+    , '</feed>';
+}
 
-say '<?xml version="1.0" encoding="UTF-8"?><feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">'
-, (feed_content $v)
-, '</feed>';
+sub md (_) { my $_ = shift;
+    s{ \A
+        .* ^title:  (\N+)
+        .*? (?= ^\#\( )
+    }{% $1\n\n}xms ;# {% $1\n\n}xms;
+
+    s{$FOUND_HEADER}
+     {# $+{title} <span class="date">-- $+{created}</span>\n}xmsg;
+    say;
+}
+
+# shift is important while i slurp ARGV just after
+my $format = shift @ARGV
+    or die "i need at least an output format (md, html, atom)"; 
+
+$format ~~ [qw< md atom html >]
+    or die "$format format isn't supported";
+
+my $input = do { local $/; <> };
+
+given ($format) {
+    say atom $input when 'atom';
+    say md   $input when 'md';
+}
