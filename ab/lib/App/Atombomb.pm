@@ -1,37 +1,24 @@
-#! /usr/bin/perl
-# use XML::Tag::Atom;
+package App::Atombomb;
+use XML::Tag::Atom;
 use Eirotic;
 use IPC::Open2;
 use Try::Tiny;
 use Text::Unidecode;
 use HTML::Entities;
-
-BEGIN {
-    use XML::Tag;
-    ns '' => qw<
-    author
-    category
-    content
-    entry
-    feed
-    icon
-    id
-    link
-    name
-    published
-    rights
-    title
-    updated >;
-}
+use Exporter 'import';
+our @EXPORT = qw<
+    parse_entry_header
+    piping
+    pandoc
+    sha1sum
+    entry_for
+    write_entry
+    feed_content
+    atom
+    md
+>;
 
 =head1 TODO
-
-=head2 remove C<TODO> occurrences of the code itself
-
-=head2 html renderer
-
-or just a little text substitution to make pandoc happier about the page info
-and h1? 
 
 =head2 new header format ?
 
@@ -62,7 +49,7 @@ of C<GNU date> for more explanation.
 
 =cut
 
-my $FOUND_HEADER = qr{
+our $FOUND_HEADER = qr{
     ^ \#\( (?<created>
           \d{4} - \d{2} - \d{2}
     T     \d{2} : \d{2} : \d{2}
@@ -193,27 +180,20 @@ func atom ( $input ) {
     , '</feed>';
 }
 
-sub md (_) { my $_ = shift;
+sub md (_) {
+
+    my $_ = shift;
+
     s{ \A
         .* ^title:  (\N+)
         .*? (?= ^\#\( )
-    }{% $1\n\n}xms ;# {% $1\n\n}xms;
+    }{% $1\n\n}xms;
 
     s{$FOUND_HEADER}
-     {# $+{title} <span class="date">-- $+{created}</span>\n}xmsg;
-    say;
+     {# $+{title}\n<p class="date"> $+{created}</p>\n}xmsg;
+
+    $_;
 }
 
-# shift is important while i slurp ARGV just after
-my $format = shift @ARGV
-    or die "i need at least an output format (md, html, atom)"; 
+1;
 
-$format ~~ [qw< md atom html >]
-    or die "$format format isn't supported";
-
-my $input = do { local $/; <> };
-
-given ($format) {
-    say atom $input when 'atom';
-    say md   $input when 'md';
-}
