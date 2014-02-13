@@ -1,0 +1,13 @@
+# my goal is to get the equivalent of the perl6 $/ as result of Parse. 
+
+i don't want to have the pegex in the perl module (or just in a POD?)
+because
+
+* i don't need to recompile it, so why should i? 
+* i want the pegex to be compiled in js 
+
+so the cli `regex compile` seems ideal in my case.  maybe i'm wrong ? 
+
+
+based on https://metacpan.org/pod/release/INGY/Pegex-0.25/lib/Pegex/Grammar.pod, 
+
