@@ -11,3 +11,13 @@ so the cli `regex compile` seems ideal in my case.  maybe i'm wrong ?
 
 based on https://metacpan.org/pod/release/INGY/Pegex-0.25/lib/Pegex/Grammar.pod, 
 
+want to help ? 
+
+    git clone --depth=1 https://github.com/eiro/labo &&
+        cd labo/pgx &&
+        make
+ 
+from #pegex@freenode: 
+[14:12] <vicash> eiro your problem is simple. Look at how I do it in https://github.com/vikasnkumar/vic-pgx Here you will find a Makefile that you can see generates JSON and YAML so your Pegex need not be in Perl
+[14:15] <vicash> eiro: another way to do it is have your Pegex be compiled into a grammar into the Perl module itself. that's how I do it in https://github.com/vikasnkumar/vic/blob/master/share/rebuild-grammar . This can be made part of a makefile
+[14:16] <vicash> eiro: the rebuild-grammar script was written by ingy. I wrote a rebuild-grammar.PL based on that to be invoked by Build.PL for CPAN to update the grammar before installing.>]'>]>]
