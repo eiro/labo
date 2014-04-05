@@ -1,5 +1,0 @@
-%grammar sexpr
-%version 0.0.0
-
-document: <line>+
-line: /no|yes/ <SPACE>*<EOL>

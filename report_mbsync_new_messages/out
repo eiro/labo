@@ -1,0 +1,21 @@
+Reading configuration file /home/mc/.mbsyncrc
+Resolving example ok
+Connecting to 127.0.0.1:993... ok
+
+Channel example
+Selecting slave example... 566 messages, 190 recent
+Selecting master INBOX... 565 messages, 0 recent
+Synchronizing
+Expunging master
+Expunging slave
+Resolving smtp.example.com ok
+Connecting to 130.79.200.160:993... ok
+
+Logging in...
+Channel example2 
+Selecting slave example2 ... 1222 messages, 0 recent
+Selecting master INBOX... 1227 messages, 3 recent
+Synchronizing
+Pulling new messages..... 3 messages
+Expunging master
+Expunging slave

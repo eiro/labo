@@ -1,0 +1,8 @@
+Build
+Build.bat
+_build
+blib
+*.bak
+*.json
+*.yml
+*.swp
