@@ -82,6 +82,15 @@ use autodie;
 use Env qw< HOME >;
 
 my $cmd = shift || 'help';
+
+my $xtrace = do {
+    if ( $cmd eq 'xtrace' ) {
+        $cmd = shift;
+        "set -x;"
+    }
+    else { "" }
+};
+
 my @subcommands = qw< help usage check url force install get >;
 
 $cmd ~~ [qw< help usage >] and do {
@@ -103,11 +112,6 @@ $cmd eq 'url' and do {
 
 my $ready = -d $current;
 exit $ready if $cmd eq 'check';
-
-if ( $ready ) {
-    exit if $cmd ne 'force';
-    qx{ rm -rf $current };
-}
 
 my ( $will_install, $asked_implementations ) = do {
     $cmd eq 'get'     ?
@@ -145,7 +149,7 @@ my $build_script =
 
 say "# will $cmd $current";
 say qq{
-    set -e
+    set -e; $xtrace
     test -d $current ||
         { curl -sL $url |
             gzip -cd    |
