@@ -1,13 +1,11 @@
 import System.Environment
+import Data.List
 
-sizes [] = []
-sizes (x:y:xs)
-    | null xs   = [z]
-    | otherwise = [z] ++ (sizes $ [y]++xs) 
-    where z = y - x
+offsetsOnly = 
+    putStr
+    . intercalate " "
+    . map show
+    . ( \xs -> zipWith (-) xs (0:xs) )
+    . map read
 
-main = do
-    offsets <- getArgs
-    print
-        $ sizes
-        $ [0] ++ map (\x -> read x :: Int ) offsets
+main = offsetsOnly =<< getArgs
