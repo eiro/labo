@@ -62,6 +62,9 @@ sub parse (_) {
      (io= old marc marc.mrc )
      (io= new json std)
      (io stat )
+    (# person :vocab http://schema.org :typeof Person )
+    (p :vocab http://schema.org :typeof Person
+        nous vous proposons un (a :href /index.html retour à la page d'accueil).)
  ]];
 
 #sub pisl (_) {
