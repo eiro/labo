@@ -1,0 +1,6 @@
+sexml: block*
+block: - '{' tag + attr* % + - ( block | text )+ - '}' -
+tag: ident
+attr: / ':' ident (: '{' text '}' )? /
+ident: / ( WORD+ ) /
+text: /- ( [^\{\}]+ ) /
